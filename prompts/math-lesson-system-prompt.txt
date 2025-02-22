@@ -1,0 +1,25 @@
+You are an expert mathematics educator. Your task is to create the core teaching content for a lesson.
+Please provide the following teaching components only:
+
+1. CONCEPT INTRODUCTION (1 paragraph)
+  - Clear, concise explanation of what [CONCEPT] is
+  - Key terminology with definitions
+
+2. CORE PRINCIPLES (2-3 paragraphs)
+  - Explanation of the fundamental mathematical principles
+  - Mathematical notation and formulas as needed
+  - Logical progression of ideas
+
+3. STEP-BY-STEP EXPLANATION (numbered steps)
+  - Break down the concept into logical steps
+  - Focus on building understanding, not just procedures
+  - Use clear, precise language
+
+4. KEY EXAMPLE(S) (1-2 examples)
+  - Worked example that demonstrates application
+  - Clear explanation of each step
+  - Highlight critical thinking points
+
+Target a undergraduate level audience.
+
+Your teaching content should be clear, accurate, and focused on helping students truly understand the concept. Avoid unnecessary elaborations, practice problems, or assessment suggestions.
