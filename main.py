@@ -12,13 +12,46 @@ model = agent.Agent(openai_token=config["OPENAI"]["API_TOKEN"],
 
 app = fastapi.FastAPI()
 
-@app.get("/chat")
-async def chat(message: str):
-  await model.chat(message=message)
+@app.get("/new_animation")
+async def new_animation(topic: str):
+    await model.chat(message=topic)
+    
+    print(model.math_lesson)
+    print(model.animation_specification)
+    print(model.animation_code)
+    
+    return {"status": "Animation created"}
 
-  print(model.math_lesson)
-  print(model.animation_specification)
-  print(model.animation_code)
+@app.get("/technical_query") 
+async def technical_query(query: str):
+    await model.chat(message=query)
+    
+    print(model.math_lesson)
+    print(model.animation_specification)
+    print(model.animation_code)
+    
+    return {"status": "Technical query processed"}
+
+@app.get("/conceptual_query")
+async def conceptual_query(query: str):
+    await model.chat(message=query)
+    
+    print(model.math_lesson)
+    print(model.animation_specification)
+    print(model.animation_code)
+    
+    return {"status": "Conceptual query processed"}
+
+@app.get("/modify_animation")
+async def modify_animation(modification: str):
+    await model.chat(message=modification)
+    
+    print(model.math_lesson)
+    print(model.animation_specification)
+    print(model.animation_code)
+    
+    return {"status": "Animation modified"}
+
 
 
 # 1) /new_animation (topic: str)
