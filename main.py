@@ -2,12 +2,11 @@ import uvicorn
 import configparser
 import fastapi
 import agent
+import anim
 
 config = configparser.ConfigParser()
 config.read("config.ini")
-model = agent.Agent(openai_token=config["OPENAI"]["API_TOKEN"], 
-                    openai_project=config['OPENAI']['PROJECT'], 
-                    anthropic_token=config['ANTHROPIC']['API_TOKEN'])
+model = agent.Agent(anthropic_token=config['ANTHROPIC']['API_TOKEN'])
 
 app = fastapi.FastAPI()
 
@@ -23,7 +22,7 @@ async def new_animation(topic: str):
 
 @app.get("/technical_query") 
 async def technical_query(query: str):
-  await model.chat(message=query)
+  await model.technical_query(message=query)
   
   print(model.math_lesson)
   print(model.animation_specification)
@@ -33,7 +32,7 @@ async def technical_query(query: str):
 
 @app.get("/conceptual_query")
 async def conceptual_query(query: str):
-  await model.chat(message=query)
+  await model.conceptual_query(message=query)
   
   print(model.math_lesson)
   print(model.animation_specification)
@@ -43,7 +42,7 @@ async def conceptual_query(query: str):
 
 @app.get("/modify_animation")
 async def modify_animation(modification: str):
-  await model.chat(message=modification)
+  await model.modify_animation(message=modification)
   
   print(model.math_lesson)
   print(model.animation_specification)
@@ -57,4 +56,4 @@ async def modify_animation(modification: str):
 # 4) /modify_animation (modification: str)
 
 if __name__ == '__main__':
-  uvicorn.run("main:app", reload=True)
+  print(anim.generate_animation_video('{"code": "from manim import *\\nclass CreateCircle(Scene):\\n    def construct(self):\\n        circle = Circle()  # create a circle\\n        circle.set_fill(PINK, opacity=0.5)  # set the color and transparency\\n        self.play(Create(circle))  # show the circle on screen", "scenes": ["CreateCircle"], "title": "Circle"}'))

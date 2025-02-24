@@ -24,3 +24,10 @@ Your code must:
 
 Below is the description for the animations you need to create:
 <ANIM_SPEC>
+
+Make sure your output is in this format:
+{"code": "...", "scenes": ["...", "...", "..."], "title": "..."}
+
+KEY POINTS:
+- title will be used as a filename, so only include valid characters
+- code blocks must be under double quotes ("") and their code must be properly formatted so that python json library can parse error free
