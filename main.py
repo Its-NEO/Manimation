@@ -1,8 +1,11 @@
 import uvicorn
 import configparser
 import fastapi
+from fastapi.responses import FileResponse
+from fastapi import BackgroundTasks
 import agent
 import anim
+import os
 
 config = configparser.ConfigParser()
 config.read("config.ini")
@@ -10,15 +13,18 @@ model = agent.Agent(anthropic_token=config['ANTHROPIC']['API_TOKEN'])
 
 app = fastapi.FastAPI()
 
-@app.get("/new_animation")
-async def new_animation(topic: str):
-  await model.new_animation(message=topic)
-  
-  print(model.math_lesson)
-  print(model.animation_specification)
-  print(model.animation_code)
-  
-  return {"status": "Animation created"}
+@app.get("/new_animation_status")
+async def new_animation_status(path: str):
+  if os.path.exists(path):
+    return FileResponse(path)
+  else:
+    return {"status": "pending"}
+
+@app.post("/new_animation")
+async def new_animation(query: str, background_tasks: BackgroundTasks):
+  generator = model.new_animation(query, background_tasks)
+  async for result in generator:
+    return {"path": f"{result}"}
 
 @app.get("/technical_query") 
 async def technical_query(query: str):
@@ -26,7 +32,6 @@ async def technical_query(query: str):
   
   print(model.math_lesson)
   print(model.animation_specification)
-  print(model.animation_code)
   
   return {"status": "Technical query processed"}
 
@@ -36,7 +41,6 @@ async def conceptual_query(query: str):
   
   print(model.math_lesson)
   print(model.animation_specification)
-  print(model.animation_code)
   
   return {"status": "Conceptual query processed"}
 
@@ -46,7 +50,6 @@ async def modify_animation(modification: str):
   
   print(model.math_lesson)
   print(model.animation_specification)
-  print(model.animation_code)
   
   return {"status": "Animation modified"}
 
@@ -56,4 +59,4 @@ async def modify_animation(modification: str):
 # 4) /modify_animation (modification: str)
 
 if __name__ == '__main__':
-  print(anim.generate_animation_video('{"code": "from manim import *\\nclass CreateCircle(Scene):\\n    def construct(self):\\n        circle = Circle()  # create a circle\\n        circle.set_fill(PINK, opacity=0.5)  # set the color and transparency\\n        self.play(Create(circle))  # show the circle on screen", "scenes": ["CreateCircle"], "title": "Circle"}'))
+  uvicorn.run("main:app", reload=True)

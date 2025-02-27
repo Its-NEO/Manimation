@@ -5,7 +5,7 @@ import anim
 
 class Agent:
   def __init__(self, anthropic_token: str):
-    self.MAX_TOKENS = 3000
+    self.MAX_TOKENS = 5000
     self.CONTEXT_LIMIT = 5
 
     self.__anthropic = anthropic.AsyncClient(api_key=anthropic_token)
@@ -17,6 +17,14 @@ class Agent:
 
     self.technical_chat_history = []
     self.conceptual_chat_history = []
+
+  @property
+  def video_path(self):
+    title = self.topic
+    filename = title.lower()
+    output = f"output/{title}"
+    output_path = f"{output}/media/videos/{filename}/1080p/video"
+    return f"{output_path}[r].mp4"
 
   def _get_math_lesson_system_prompt(self) -> str:
     return Agent.read_file("prompts/math-lesson-system-prompt.txt")
@@ -123,12 +131,25 @@ class Agent:
     topic = json.loads(completion.content[0].text)["topic"]
 
     self.topic = topic
-    
-  async def new_animation(self, query: str):
-    await self._extract_topic(query)
+
+  async def _continue_video_generation(self):
+    print("Running bg tasks")
     await self._generate_math_lesson()
+    print(f"Math Lesson:{self.math_lesson}")
     await self._generate_animation_spec()
+    print(f"Animation Spec:{self.animation_specification}")
     await self.generate_animation_json()
+    print(f"Animation JSON:{self.animation_json}")
+    
+    # This is blocking so it is a bad practice
+    anim.generate_animation_video(self.topic, self.animation_json)
+
+  import fastapi 
+  async def new_animation(self, query: str, background_tasks: fastapi.BackgroundTasks):
+    await self._extract_topic(query)
+    background_tasks.add_task(self._continue_video_generation)
+    
+    yield self.video_path
 
   def create_user_message(query: str) -> dict[str, typing.Any]:
     return {
@@ -152,8 +173,7 @@ class Agent:
     self.append_conceptual_chat_message(self.create_user_message(query))
     completion = await self.__anthropic.messages.create(system= self.__concept_details_context,messages=self.conceptual_chat_history)
 
-
-if __name__ == '__main__':
+async def test():
   import configparser
   import asyncio
 
@@ -161,10 +181,10 @@ if __name__ == '__main__':
   config.read("config.ini")
 
   model = Agent(config["ANTHROPIC"]["API_TOKEN"])
-  
-  asyncio.run(model.new_animation("Area under the curves."))
-  
-  print(model.topic)
-  print(model.math_lesson)
-  print(model.animation_specification)
-  print(model.animation_json)
+  async for result in model.new_animation("Something"):
+    print(result)
+
+
+if __name__ == '__main__':
+  import asyncio
+  asyncio.run(test())

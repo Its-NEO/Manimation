@@ -17,17 +17,37 @@ Your responsibilities:
    - Object properties
 
 Your code must:
+- Your code must be fully functional.
 - Be properly structured with clear scene definitions
 - Include all necessary imports
 - Follow manim best practices
 - Be ready to run without modifications
 
-Below is the description for the animations you need to create:
-<ANIM_SPEC>
+IMPORTANT:
+1. Provide ONLY the JSON response with no additional text before or after
+2. Ensure all code is properly escaped as a valid JSON string
+3. Your response must begin with { and end with } with no other characters outside
+4. Make sure all quotes, backslashes, and special characters within the code are properly escaped
+5. Use \\n for newlines in the code string instead of actual line breaks
+6. Don't create scenes to run other scenes.
+7. Each scenes must have only one function: construct.
+8. Create multiple scenes for multiple headings and subheadings.
+9. There must be only one scene where it will have different sections.
+10. Use fill_opacity instead of opacity wherever required.
 
-Make sure your output is in this format:
-{"code": "...", "scenes": ["...", "...", "..."], "title": "..."}
+EXAMPLE:
 
-KEY POINTS:
-- title will be used as a filename, so only include valid characters
-- code blocks must be under double quotes ("") and their code must be properly formatted so that python json library can parse error free
+Below is the description for the animation you need to create:
+
+Create a simple animation showing the concept of derivatives. Include:
+- A graph of f(x) = x²
+- A point moving along the curve
+- The tangent line at each point
+- The slope value displayed
+- Clear labels and colors
+
+YOUR RESPONSE MUST BE IN THE FOLLOWING JSON FORMAT:
+{
+   "code": "from manim import *\n\nclass Derivatives(Scene):\n    def construct(self):\n        # Your code here",
+   "scene": "Derivatives"
+}

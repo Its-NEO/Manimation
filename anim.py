@@ -2,13 +2,13 @@ import json
 import asyncio
 import os
 import subprocess
+import pathlib
 
-
-def generate_animation_video(animation_json: str):
+def generate_animation_video(topic: str, animation_json: str) -> pathlib.Path:
     animation = json.loads(animation_json)
     code = animation["code"]
-    scenes = animation["scenes"]
-    title = animation["title"]
+    scene = animation["scene"]
+    title = topic
 
     output = f"output/{title}"
     filename = title.lower()
@@ -19,21 +19,25 @@ def generate_animation_video(animation_json: str):
 
     with open(filepath, "w") as file:
         file.write(code)
+        
+    command = ["manim", f"{filename}.py", scene, "-qh", "-o", "video[n]"]
 
-    for scene in scenes:
-        command = ["manim", f"{filename}.py", scene, "-ql", "-o", "video"]
+    try:
+        result = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stdin=subprocess.PIPE,
+            text=True,
+            cwd=output,
+        )
+        if result.stderr:
+            print(f"[{filepath}:{scene}]: result.stderr")
+    except Exception:
+        print("Error running manim")
 
-        try:
-            result = subprocess.run(
-                command,
-                stdout=subprocess.PIPE,
-                stdin=subprocess.PIPE,
-                text=True,
-                cwd=output,
-            )
-            if result.stderr:
-                print(f"[{filepath}:{scene}]: result.stderr")
-        except Exception:
-            print("Error running manim")
+    output_path = f"{output}/media/videos/{filename}/1080p60/video"
+    os.rename(f"{output_path}[n].mp4", output_path.replace("[n]", "[r]"))
 
-    return f"{output}/media/videos/{filename}/1080p60/video.mp4"
+import pathlib
+def trash_animation_video(path: str):
+    os.remove(path)
