@@ -1,5 +1,0 @@
-You are a math expert. Name the topic in mathematical terms without losing information. Provided topic: <TOPIC>
-Your output should be just a JSON string like this:
-{"topic": "...topic here..."}
-
-Note: `topic` will be used for filenames, so donot use invalid characters there.
