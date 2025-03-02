@@ -1,7 +1,7 @@
 import uvicorn
 import configparser
 import fastapi
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exceptions import HTTPException
 from fastapi import BackgroundTasks
 import os
@@ -282,6 +282,13 @@ async def chat(chat: ChatMessage):
         "response": response
     }
 
+@app.get("/video/{job_id}")
+async def get_video(job_id: str):
+    video_files = list(Path("media/videos").glob(f"*/{job_id}.mp4"))
+    if not video_files:
+        HTTPException(404, "Video file not found.")
+
+    return FileResponse(video_files[0])
 
 # 1) /new_animation (topic: str)
 # 2) /technical_query (query: str)
