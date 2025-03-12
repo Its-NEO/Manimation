@@ -1,2 +1,0 @@
-# This file is used internally by FFMPEG.
-file 'file:/Users/neoweo/codespace/python/Genimation/output/Circle/media/videos/circle/1080p60/partial_movie_files/CreateCircle/3529212410_3120274435_223132457.mp4'
