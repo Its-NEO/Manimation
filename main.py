@@ -40,9 +40,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 job_store = {}
-MAX_TOKENS = 3000
+
+# TODO: Change it to 3000 for production
+MAX_TOKENS = 1000
 CONTEXT_LIMIT = 5
-MAX_RETRIES = 3  # Maximum number of retries for code generation
+MAX_RETRIES = 1  # Maximum number of retries for code generation
 chat_context = []
 
 # Basic prompt for Manim code generation
@@ -199,10 +201,10 @@ async def run_manim_command(file_path: str, job_id: str, timeout: int = 300):
     try:
         # The -pql flag creates a low quality, faster render
         python_exe = sys.executable
-        output_dir = f"media/videos/{job_id}"
+        output_dir = f"media/videos/"
         os.makedirs(output_dir, exist_ok=True)
 
-        cmd = f'"{python_exe}" -m manim -pql {file_path} --media_dir -o  {job_id}'
+        cmd = f'"{python_exe}" -m manim -pql ../../{file_path} --media_dir {job_id}'
         logger.info(f"Running command: {cmd}")
 
         # Use asyncio to run the subprocess with a timeout
@@ -210,6 +212,7 @@ async def run_manim_command(file_path: str, job_id: str, timeout: int = 300):
             cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            cwd=output_dir
         )
 
         try:
