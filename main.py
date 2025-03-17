@@ -41,10 +41,9 @@ app.add_middleware(
 )
 job_store = {}
 
-# TODO: Change it to 3000 for production
-MAX_TOKENS = 1000
+MAX_TOKENS = 3000
 CONTEXT_LIMIT = 5
-MAX_RETRIES = 1  # Maximum number of retries for code generation
+MAX_RETRIES = 3  # Maximum number of retries for code generation
 chat_context = []
 
 # Basic prompt for Manim code generation
