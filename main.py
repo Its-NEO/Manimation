@@ -624,25 +624,34 @@ async def get_video(job_id: str):
         raise HTTPException(status_code=404, detail="Video file not found")
 
     # Check if ffmpeg is available
-    try:
-        subprocess.run(["ffmpeg", "-version"], check=True, capture_output=True)
-    except (subprocess.SubprocessError, FileNotFoundError):
-        logger.warning("FFmpeg not found, falling back to direct file response")
-        return FileResponse(
-            video_path, media_type="video/mp4", headers={"Accept-Ranges": "bytes"}
-        )
+    # try:
+    #     subprocess.run(["ffmpeg", "-version"], check=True, capture_output=True)
+    # except (subprocess.SubprocessError, FileNotFoundError):
+    #     logger.warning("FFmpeg not found, falling back to direct file response")
+    #     return FileResponse(
+    #         video_path, media_type="video/mp4", headers={"Accept-Ranges": "bytes"}
+    #     )
 
     # Stream the video using ffmpeg
-    generator = await stream_video(video_path)
+    # generator = await stream_video(video_path)
 
-    return StreamingResponse(
-        generator,
+    return FileResponse(
+        path=video_path,
         media_type="video/mp4",
         headers={
             "Accept-Ranges": "bytes",
             "Content-Disposition": f"inline; filename={job_id}.mp4",
         },
     )
+
+    # return FileResponse(
+    #     generator,
+    #     media_type="video/mp4",
+    #     headers={
+    #         "Accept-Ranges": "bytes",
+    #         "Content-Disposition": f"inline; filename={job_id}.mp4",
+    #     },
+    # )
 
 
 @app.get("/check-manim")
