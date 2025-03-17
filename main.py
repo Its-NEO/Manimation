@@ -205,6 +205,10 @@ async def run_manim_command(file_path: str, job_id: str, timeout: int = 300):
         os.makedirs(output_dir, exist_ok=True)
 
         cmd = f'"{python_exe}" -m manim -pql ../../{file_path} --media_dir {job_id}'
+
+        if sys.platform == "win32":
+            cmd = f'"{python_exe}" -m manim -pql ..\..\{file_path} --media_dir {job_id}'
+
         logger.info(f"Running command: {cmd}")
 
         # Use asyncio to run the subprocess with a timeout
