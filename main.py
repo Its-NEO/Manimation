@@ -192,7 +192,7 @@ async def run_manim_command(file_path: str, job_id: str, timeout: int = 300):
         cmd = f'"{python_exe}" -m manim -pql ../../{file_path} --media_dir {job_id}'
 
         if sys.platform == "win32":
-            cmd = f'"{python_exe}" -m manim -pql ..\..\{file_path} --media_dir {job_id}'
+            cmd = f'"{python_exe}" -m manim -pql ..\\..\\{file_path} --media_dir {job_id}'
 
         logger.info(f"Running command: {cmd}")
 
@@ -326,7 +326,7 @@ async def generate_visualization(job_id: str, topic: str):
                         f"Manim rendering failed on attempt {retry_count}. Error: {error_message}"
                     )
 
-                    if retry_count > MAX_RETRIES:
+                    if retry_count >= MAX_RETRIES:
                         job_store[job_id]["status"] = "failed"
                         break
                     else:
@@ -351,7 +351,7 @@ async def generate_visualization(job_id: str, topic: str):
                         f"Video file handling failed on attempt {retry_count}. Error: {video_result}"
                     )
 
-                    if retry_count > MAX_RETRIES:
+                    if retry_count >= MAX_RETRIES:
                         job_store[job_id]["status"] = "failed"
                         break
                     else:
@@ -377,7 +377,7 @@ async def generate_visualization(job_id: str, topic: str):
                     f"Error in visualization attempt {retry_count}: {last_error}"
                 )
 
-                if retry_count <= MAX_RETRIES:
+                if retry_count < MAX_RETRIES:
                     await asyncio.sleep(2)
                 else:
                     job_store[job_id]["status"] = "failed"
@@ -385,8 +385,9 @@ async def generate_visualization(job_id: str, topic: str):
                         "progress_details"
                     ] = f"Failed after {MAX_RETRIES} attempts"
 
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        # Keep the generated Manim code file for debugging
+        # if os.path.exists(file_path):
+        #     os.remove(file_path)
 
         if not success and job_store[job_id]["status"] != "failed":
             job_store[job_id]["status"] = "failed"
@@ -401,8 +402,9 @@ async def generate_visualization(job_id: str, topic: str):
         job_store[job_id]["error"] = str(e)
         job_store[job_id]["progress_details"] = "Unexpected error in generation process"
 
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        # Keep the generated Manim code file for debugging
+        # if os.path.exists(file_path):
+        #     os.remove(file_path)
 
 
 async def stream_video(video_path: str):
@@ -516,7 +518,13 @@ async def status_endpoint(job_id: str):
 
         if job_id not in job_store:
             logger.warning(f"Job not found: {job_id}")
-            raise HTTPException(status_code=404, detail="Job not found")
+            # Instead of raising an exception, return a valid response with status=not_found
+            return {
+                "job_id": job_id,
+                "status": "not_found",
+                "video_path": "",
+                "error": "Job not found",
+            }
 
         job = job_store[job_id]
         logger.info(f"Job data: {job}")
@@ -529,7 +537,13 @@ async def status_endpoint(job_id: str):
         }
     except Exception as e:
         logger.error(f"Error in status endpoint: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        # Return a valid response instead of raising an exception
+        return {
+            "job_id": job_id,
+            "status": "error",
+            "video_path": "",
+            "error": f"Error retrieving status: {str(e)}",
+        }
 
 
 @app.get("/list-jobs")
@@ -667,23 +681,42 @@ async def check_ffmpeg():
 @app.get("/logs/{job_id}")
 async def get_job_logs(job_id: str):
     """Get detailed logs for a specific job."""
-    if job_id not in job_store:
-        raise HTTPException(status_code=404, detail="Job not found")
+    try:
+        if job_id not in job_store:
+            logger.warning(f"Job not found for logs: {job_id}")
+            return {
+                "job_id": job_id,
+                "status": "not_found",
+                "error": "Job not found",
+                "topic": "",
+                "created_at": time.time(),
+                "video_path": "",
+            }
 
-    job = job_store[job_id]
+        job = job_store[job_id]
 
-    logs = {
-        "job_id": job_id,
-        "topic": job["topic"],
-        "status": job["status"],
-        "created_at": job["created_at"],
-        "error": job.get("error") or "",
-        "video_path": job.get("video_path") or "",
-    }
+        logs = {
+            "job_id": job_id,
+            "topic": job["topic"],
+            "status": job["status"],
+            "created_at": job["created_at"],
+            "error": job.get("error") or "",
+            "video_path": job.get("video_path") or "",
+        }
 
-    return logs
+        return logs
+    except Exception as e:
+        logger.error(f"Error in logs endpoint: {str(e)}")
+        return {
+            "job_id": job_id,
+            "status": "error",
+            "error": f"Error retrieving logs: {str(e)}",
+            "topic": "",
+            "created_at": time.time(),
+            "video_path": "",
+        }
 
 
 if __name__ == "__main__":
     os.makedirs("videos", exist_ok=True)
-    uvicorn.run("main:app", reload=True)
+    uvicorn.run("main:app", reload=False)

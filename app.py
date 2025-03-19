@@ -89,7 +89,8 @@ def poll_job_status(job_id):
     stages = {
         "queued": "Job is queued",
         "generating_code": "Generating Manim code",
-        "rendering": "Rendering visualization video",  
+        "rendering_video": "Rendering visualization video",
+        "processing_video": "Processing video file",
         "completed": "Visualization complete!",
         "failed": "Visualization failed",
     }
@@ -98,6 +99,7 @@ def poll_job_status(job_id):
         "queued": 0.1,
         "generating_code": 0.3,
         "rendering_video": 0.7,
+        "processing_video": 0.9,
         "completed": 1.0,
         "failed": 1.0,
     }
@@ -113,76 +115,107 @@ def poll_job_status(job_id):
             response = requests.get(f"{API_URL}/status/{job_id}")
             log_response = requests.get(f"{API_URL}/logs/{job_id}")
 
-            if response.status_code == 200 and log_response.status_code == 200:
-                data = response.json()
-                log_data = log_response.json()
-
-                current_status = data["status"]
-                error_message = data.get("error", "")
-                video_path = data.get("video_path", "")
-
-                if (
-                    current_status in ["generating_code", "rendering_video"]
-                    and "attempt" in error_message.lower()
-                ):
-                    import re
-
-                    retry_match = re.search(r"attempt (\d+)", error_message.lower())
-                    if retry_match:
-                        retry_count = int(retry_match.group(1))
-                    else:
-                        retry_count += 1
-
-                elapsed_time = time.time() - start_time
-                elapsed_str = f"{int(elapsed_time // 60)}m {int(elapsed_time % 60)}s"
-
-                progress_value = progress_values.get(current_status, 0)
-                if retry_count > 0 and current_status in [
-                    "generating_code",
-                    "rendering_video",
-                ]:
-                    progress_value = max(0.2, progress_value - 0.1)
-                progress_bar.progress(progress_value)
-
-                status_message = stages.get(current_status, current_status)
-
-                if retry_count > 0 and current_status not in ["completed", "failed"]:
-                    status_placeholder.markdown(
-                        f"<div class='status-retry'>🔄 {status_message} (Retry {retry_count}) - Elapsed: {elapsed_str}</div>",
-                        unsafe_allow_html=True,
-                    )
-                elif current_status == "failed":
-                    status_placeholder.markdown(
-                        f"<div class='status-error'>⚠️ {status_message}: {error_message}</div>",
-                        unsafe_allow_html=True,
-                    )
-                elif current_status == "completed":
-                    status_placeholder.markdown(
-                        f"<div class='status-complete'>✅ {status_message} - Total time: {elapsed_str}</div>",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    status_placeholder.markdown(
-                        f"<div class='status-pending'>⏳ {status_message} - Elapsed: {elapsed_str}</div>",
-                        unsafe_allow_html=True,
-                    )
-
-                if error_message:
-                    log_placeholder.markdown(
-                        f"<div class='log-container'>{error_message}</div>",
-                        unsafe_allow_html=True,
-                    )
-
-                if current_status == "completed":
-                    break
-
-                time.sleep(3)  
-            else:
+            # Always try to parse the responses, even if not 200
+            try:
+                data = response.json() if response.status_code == 200 else {"status": "error", "error": response.text}
+                log_data = log_response.json() if log_response.status_code == 200 else {"error": log_response.text}
+            except Exception as json_error:
+                data = {"status": "error", "error": f"Invalid response: {str(json_error)}"}
+                log_data = {"error": str(json_error)}
+                
+            # Continue if we at least got a status
+            current_status = data["status"]
+            error_message = data.get("error", "")
+            video_path = data.get("video_path", "")
+            
+            # Handle special statuses first
+            if data["status"] == "not_found":
                 status_placeholder.markdown(
-                    f"<div class='status-error'>⚠️ Error checking status: {response.text}</div>",
+                    f"<div class='status-error'>⚠️ Job not found. The job may have expired or been deleted.</div>",
                     unsafe_allow_html=True,
                 )
+                # Set current_status to stop the polling
+                current_status = "failed"
+                error_message = "Job not found or expired"
                 break
+            elif data["status"] == "error":
+                status_placeholder.markdown(
+                    f"<div class='status-error'>⚠️ Error checking status: {data.get('error', 'Unknown error')}</div>",
+                    unsafe_allow_html=True,
+                )
+                # Set current_status to stop the polling
+                current_status = "failed"
+                error_message = data.get('error', 'Unknown error')
+                break
+                
+            # Handle explicit retry status formats and progress details from backend
+            if current_status.startswith("retry_"):
+                import re
+                retry_match = re.search(r"retry_(\d+)_of_\d+", current_status)
+                if retry_match:
+                    retry_count = int(retry_match.group(1))
+                else:
+                    retry_count += 1
+            elif (
+                current_status in ["generating_code", "rendering_video"]
+                and "attempt" in error_message.lower()
+            ):
+                import re
+                retry_match = re.search(r"attempt (\d+)", error_message.lower())
+                if retry_match:
+                    retry_count = int(retry_match.group(1))
+                else:
+                    retry_count += 1
+
+            elapsed_time = time.time() - start_time
+            elapsed_str = f"{int(elapsed_time // 60)}m {int(elapsed_time % 60)}s"
+
+            progress_value = progress_values.get(current_status, 0)
+            if retry_count > 0 and (current_status.startswith("retry_") or current_status in [
+                "generating_code",
+                "rendering_video",
+            ]):
+                progress_value = max(0.2, progress_value - 0.1)
+            progress_bar.progress(progress_value)
+
+            # Extract meaningful status message from retry format
+            if current_status.startswith("retry_"):
+                base_status = "Retrying visualization generation"
+                status_message = f"{base_status} ({current_status})"
+            else:
+                status_message = stages.get(current_status, current_status)
+
+            if retry_count > 0 and current_status not in ["completed", "failed"]:
+                status_placeholder.markdown(
+                    f"<div class='status-retry'>🔄 {status_message} (Retry {retry_count}) - Elapsed: {elapsed_str}</div>",
+                    unsafe_allow_html=True,
+                )
+            elif current_status == "failed":
+                status_placeholder.markdown(
+                    f"<div class='status-error'>⚠️ {status_message}: {error_message}</div>",
+                    unsafe_allow_html=True,
+                )
+            elif current_status == "completed":
+                status_placeholder.markdown(
+                    f"<div class='status-complete'>✅ {status_message} - Total time: {elapsed_str}</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                status_placeholder.markdown(
+                    f"<div class='status-pending'>⏳ {status_message} - Elapsed: {elapsed_str}</div>",
+                    unsafe_allow_html=True,
+                )
+
+            if error_message:
+                log_placeholder.markdown(
+                    f"<div class='log-container'>{error_message}</div>",
+                    unsafe_allow_html=True,
+                )
+
+            if current_status == "completed":
+                break
+
+            time.sleep(3)
         except Exception as e:
             status_placeholder.markdown(
                 f"<div class='status-error'>⚠️ Error: {str(e)}</div>",
