@@ -5,13 +5,10 @@ import os
 from PIL import Image
 import base64
 
-# Configuration
-API_URL = "http://localhost:8000"  # FastAPI server URL
+API_URL = "http://localhost:8000"  
 
-# Set page config
 st.set_page_config(page_title="Math Visualizer", page_icon="🧮", layout="wide")
 
-# CSS for styling
 st.markdown(
     """
 <style>
@@ -73,7 +70,6 @@ st.markdown(
 )
 
 
-# Helper function to create a download link for videos
 def get_video_download_link(video_path, link_text="Download Video"):
     with open(video_path, "rb") as file:
         video_bytes = file.read()
@@ -82,20 +78,18 @@ def get_video_download_link(video_path, link_text="Download Video"):
         return href
 
 
-# Helper function to poll job status
 def poll_job_status(job_id):
     status_placeholder = st.empty()
     progress_bar = st.progress(0)
     log_placeholder = st.empty()
 
-    # Track retry attempts
     retry_count = 0
     last_error = None
 
     stages = {
         "queued": "Job is queued",
         "generating_code": "Generating Manim code",
-        "rendering": "Rendering visualization video",  # Changed from rendering_video
+        "rendering": "Rendering visualization video",  
         "completed": "Visualization complete!",
         "failed": "Visualization failed",
     }
@@ -112,12 +106,10 @@ def poll_job_status(job_id):
     error_message = None
     video_path = None
 
-    # Start time to calculate elapsed time
     start_time = time.time()
 
     while current_status not in ["completed", "failed"]:
         try:
-            # Get both status and logs
             response = requests.get(f"{API_URL}/status/{job_id}")
             log_response = requests.get(f"{API_URL}/logs/{job_id}")
 
@@ -129,12 +121,10 @@ def poll_job_status(job_id):
                 error_message = data.get("error", "")
                 video_path = data.get("video_path", "")
 
-                # Check if we're in a retry situation
                 if (
                     current_status in ["generating_code", "rendering_video"]
                     and "attempt" in error_message.lower()
                 ):
-                    # Extract retry count if possible
                     import re
 
                     retry_match = re.search(r"attempt (\d+)", error_message.lower())
@@ -143,13 +133,10 @@ def poll_job_status(job_id):
                     else:
                         retry_count += 1
 
-                # Calculate elapsed time
                 elapsed_time = time.time() - start_time
                 elapsed_str = f"{int(elapsed_time // 60)}m {int(elapsed_time % 60)}s"
 
-                # Update progress bar
                 progress_value = progress_values.get(current_status, 0)
-                # Adjust progress for retry attempts (make it pulse back a bit)
                 if retry_count > 0 and current_status in [
                     "generating_code",
                     "rendering_video",
@@ -157,7 +144,6 @@ def poll_job_status(job_id):
                     progress_value = max(0.2, progress_value - 0.1)
                 progress_bar.progress(progress_value)
 
-                # Display status message with retry information if applicable
                 status_message = stages.get(current_status, current_status)
 
                 if retry_count > 0 and current_status not in ["completed", "failed"]:
@@ -181,7 +167,6 @@ def poll_job_status(job_id):
                         unsafe_allow_html=True,
                     )
 
-                # Display logs in a scrollable container
                 if error_message:
                     log_placeholder.markdown(
                         f"<div class='log-container'>{error_message}</div>",
@@ -191,7 +176,7 @@ def poll_job_status(job_id):
                 if current_status == "completed":
                     break
 
-                time.sleep(3)  # Poll every 3 seconds
+                time.sleep(3)  
             else:
                 status_placeholder.markdown(
                     f"<div class='status-error'>⚠️ Error checking status: {response.text}</div>",
@@ -209,7 +194,6 @@ def poll_job_status(job_id):
 
 
 def main():
-    # Header
     st.markdown(
         "<div class='main-header'>Mathematical Visualization Tool</div>",
         unsafe_allow_html=True,
@@ -219,7 +203,6 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # Create tabs
     tab1, tab2, tab3 = st.tabs(
         ["Generate Visualization", "Chat with Assistant", "View Previous Jobs"]
     )
@@ -231,7 +214,6 @@ def main():
         )
         st.markdown("Enter a mathematical topic or expression to visualize:")
 
-        # Input field and submit button
         with st.form("visualization_form"):
             topic = st.text_area(
                 "Mathematical Topic/Expression",
@@ -246,7 +228,6 @@ def main():
             )
 
             try:
-                # Make API request to generate visualization
                 response = requests.post(f"{API_URL}/generate", json={"topic": topic})
 
                 if response.status_code == 200:
@@ -255,26 +236,21 @@ def main():
 
                     st.info(f"Visualization generation started (Job ID: {job_id})")
 
-                    # Poll for status updates
                     status, video_path, error = poll_job_status(job_id)
 
-                    # If completed, display the video
                     if status == "completed":
                         st.markdown(
                             "<div class='sub-header'>Visualization Result</div>",
                             unsafe_allow_html=True,
                         )
 
-                        # Get and display the video
                         video_url = f"{API_URL}/video/{job_id}"
                         st.video(video_url)
 
-                        # Add download link
                         st.markdown(
                             f"[Download Video]({video_url})", unsafe_allow_html=False
                         )
 
-                        # Store in session state for history
                         if "job_history" not in st.session_state:
                             st.session_state.job_history = []
 
@@ -307,11 +283,9 @@ def main():
         )
         st.markdown("Ask questions about Manim code or mathematical visualizations:")
 
-        # Initialize chat history
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = []
 
-        # Display chat history
         for message in st.session_state.chat_history:
             if message["role"] == "user":
                 st.markdown(
@@ -324,7 +298,6 @@ def main():
                     unsafe_allow_html=True,
                 )
 
-        # Chat input
         with st.form("chat_form"):
             chat_message = st.text_area(
                 "Your message",
@@ -333,21 +306,17 @@ def main():
             chat_submitted = st.form_submit_button("Send Message")
 
         if chat_submitted and chat_message:
-            # Add user message to history
             st.session_state.chat_history.append(
                 {"role": "user", "content": chat_message}
             )
 
-            # Display the message
             st.markdown(
                 f"<div class='chat-user'>🧑‍💻 <b>You:</b> {chat_message}</div>",
                 unsafe_allow_html=True,
             )
 
-            # Placeholder for assistant response
             with st.spinner("Thinking..."):
                 try:
-                    # Make API request to chat endpoint
                     response = requests.post(
                         f"{API_URL}/chat", json={"message": chat_message}
                     )
@@ -355,14 +324,12 @@ def main():
                     if response.status_code == 200:
                         assistant_response = response.json()["response"]
 
-                        # Add assistant response to history
                         st.session_state.chat_history.append(
                             {"role": "assistant", "content": assistant_response}
                         )
 
-                        # Display the response
                         st.markdown(
-                            f"<div class='chat-assistant'>🤖 <b>Assistant:</b> {assistant_response}</div>",
+                            f"<div class='chat-assistant'>🤖 <b>Assistant:</b> \n{assistant_response}</div>",
                             unsafe_allow_html=True,
                         )
                     else:
@@ -371,7 +338,6 @@ def main():
                 except Exception as e:
                     st.error(f"Error: {str(e)}")
 
-            # Rerun to update the interface
             st.rerun()
 
     with tab3:
@@ -380,11 +346,9 @@ def main():
             unsafe_allow_html=True,
         )
 
-        # Initialize if needed
         if "job_history" not in st.session_state:
             st.session_state.job_history = []
 
-        # Button to refresh job list
         if st.button("Refresh Job List"):
             try:
                 response = requests.get(f"{API_URL}/list-jobs")
@@ -393,7 +357,6 @@ def main():
                     if not jobs:
                         st.info("No previous jobs found")
                     else:
-                        # Update the session state
                         st.session_state.job_history = []
                         for job in jobs:
                             job_id = job["job_id"]
@@ -419,7 +382,6 @@ def main():
             except Exception as e:
                 st.error(f"Error refreshing jobs: {str(e)}")
 
-        # Display jobs
         if not st.session_state.job_history:
             st.info("No previous jobs found or loaded")
         else:
@@ -429,7 +391,6 @@ def main():
                     st.write(f"**Topic:** {job['topic']}")
                     st.write(f"**Status:** {job['status']}")
 
-                    # Show logs button
                     if st.button(f"View Logs", key=f"logs_{job['job_id']}"):
                         try:
                             log_response = requests.get(

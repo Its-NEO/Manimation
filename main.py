@@ -20,7 +20,6 @@ from typing import Optional, List, Dict
 import asyncio
 import io
 
-# Set up logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
@@ -34,7 +33,7 @@ app = fastapi.FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update with specific origins in production
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,10 +42,9 @@ job_store = {}
 
 MAX_TOKENS = 3000
 CONTEXT_LIMIT = 5
-MAX_RETRIES = 3  # Maximum number of retries for code generation
+MAX_RETRIES = 3  
 chat_context = []
 
-# Basic prompt for Manim code generation
 BASE_PROMPT = """You are a math visualizer and you need to explain {topic} by generating manim video code. Return ONLY the Python code for Manim with no explanations, comments or anything else.
 
 IMPORTANT REQUIREMENTS:
@@ -70,7 +68,6 @@ class YourVisualizationName(ThreeDScene):
 ```
 """
 
-# Error correction prompt
 ERROR_CORRECTION_PROMPT = """The Manim code you provided resulted in the following error:
 
 ```
@@ -118,15 +115,13 @@ async def generate_manim_code(
         logger.info(f"Requesting Manim code for topic: {topic} (Retry: {retry_count})")
 
         if error_message:
-            # We're in correction mode
             prompt = ERROR_CORRECTION_PROMPT.format(error=error_message)
             logger.info("Using error correction prompt")
         else:
-            # First attempt
             prompt = BASE_PROMPT.format(topic=topic)
 
         message = await __anthropic.messages.create(
-            model="claude-3-5-sonnet-20240620",
+            model="claude-3-opus-latest",
             max_tokens=MAX_TOKENS,
             temperature=0.2,
             system="You are a math visualization expert who creates flawless Manim code. Only respond with complete, working Python code for Manim, no explanations. Your code should NOT use special Unicode characters, use ASCII alternatives instead.",
@@ -135,19 +130,15 @@ async def generate_manim_code(
 
         code = message.content[0].text
 
-        # Check if the response contains code blocks
         if "```python" in code:
-            # Extract code between python code blocks
             code_blocks = re.findall(r"```python\n(.*?)```", code, re.DOTALL)
             if code_blocks:
                 code = code_blocks[0]
         elif "```" in code:
-            # Extract code between any code blocks
             code_blocks = re.findall(r"```\n(.*?)```", code, re.DOTALL)
             if code_blocks:
                 code = code_blocks[0]
 
-        # If the response still seems to contain explanations, try again
         if len(code.splitlines()) < 10 or "Here's" in code or "I'll" in code:
             logger.info(
                 "Response contains explanations instead of pure code. Trying again..."
@@ -168,7 +159,6 @@ async def generate_manim_code(
 
             code = message.content[0].text
 
-            # Extract code again if needed
             if "```python" in code:
                 code_blocks = re.findall(r"```python\n(.*?)```", code, re.DOTALL)
                 if code_blocks:
@@ -178,11 +168,9 @@ async def generate_manim_code(
                 if code_blocks:
                     code = code_blocks[0]
 
-        # Make sure 3D scenes use set_camera_orientation instead of move_camera
         if "ThreeDScene" in code and "move_camera" in code:
             code = code.replace("move_camera", "set_camera_orientation")
 
-        # Make sure we import * from manim
         if "from manim import" not in code and "import manim" not in code:
             code = "from manim import *\n" + code
 
@@ -194,11 +182,9 @@ async def generate_manim_code(
         raise Exception(f"Failed to generate Manim code: {str(e)}")
 
 
-# Add a timeout parameter to run_manim_command
 async def run_manim_command(file_path: str, job_id: str, timeout: int = 300):
     """Run the Manim command with a timeout and return success status and error message if any."""
     try:
-        # The -pql flag creates a low quality, faster render
         python_exe = sys.executable
         output_dir = f"media/videos/"
         os.makedirs(output_dir, exist_ok=True)
@@ -210,7 +196,6 @@ async def run_manim_command(file_path: str, job_id: str, timeout: int = 300):
 
         logger.info(f"Running command: {cmd}")
 
-        # Use asyncio to run the subprocess with a timeout
         process = await asyncio.create_subprocess_shell(
             cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -225,7 +210,6 @@ async def run_manim_command(file_path: str, job_id: str, timeout: int = 300):
             stdout = stdout.decode("utf-8")
             stderr = stderr.decode("utf-8")
 
-            # Update job status in the store to reflect progress
             if job_id in job_store:
                 job_store[job_id]["status"] = "processing_video"
 
@@ -237,7 +221,6 @@ async def run_manim_command(file_path: str, job_id: str, timeout: int = 300):
             return True, None
 
         except asyncio.TimeoutError:
-            # Kill the process if it times out
             process.kill()
             error_msg = f"Manim rendering timed out after {timeout} seconds"
             logger.error(error_msg)
@@ -252,13 +235,10 @@ async def find_and_move_video(job_id: str):
     """Find the generated video file and move it to the videos directory.
     Returns (success, error_message)."""
     try:
-        # Look for videos in the job-specific output directory
         job_output_dir = Path(f"media/videos/{job_id}")
 
-        # Wait a moment for file system to update
         await asyncio.sleep(1)
 
-        # List all MP4 files in that directory
         if job_output_dir.exists():
             video_files = list(job_output_dir.glob("*.mp4"))
             logger.info(f"Found {len(video_files)} videos in {job_output_dir}")
@@ -266,9 +246,7 @@ async def find_and_move_video(job_id: str):
             video_files = []
             logger.warning(f"Directory not found: {job_output_dir}")
 
-        # If not found in the expected location, search more broadly
         if not video_files:
-            # Search for any file containing the job_id in its name
             for root, dirs, files in os.walk("media/videos"):
                 for file in files:
                     if file.endswith(".mp4"):
@@ -276,7 +254,6 @@ async def find_and_move_video(job_id: str):
                         logger.info(f"Found MP4: {filepath}")
                         video_files.append(Path(filepath))
 
-            # If still not found, do a deep search
             if not video_files:
                 video_files = list(Path(".").glob(f"**/*.mp4"))
                 logger.info(f"Deep search found {len(video_files)} MP4 files")
@@ -284,18 +261,15 @@ async def find_and_move_video(job_id: str):
         if not video_files:
             return False, f"Video file not found for job_id: {job_id}"
 
-        # Sort by creation time to get the newest video if multiple are found
         if len(video_files) > 1:
             video_files.sort(key=lambda x: os.path.getctime(str(x)), reverse=True)
             logger.info(
                 f"Multiple videos found, using the newest one: {video_files[0]}"
             )
 
-        # Move the video to our videos directory
         source_video = str(video_files[0])
         dest_video = f"videos/{job_id}.mp4"
 
-        # Use shutil.copy2 instead of os.rename to avoid cross-device link errors
         shutil.copy2(source_video, dest_video)
         logger.info(f"Video copied from {source_video} to {dest_video}")
 
@@ -310,7 +284,6 @@ async def generate_visualization(job_id: str, topic: str):
     file_path = f"manim_code_{job_id}.py"
 
     try:
-        # Update job status
         job_store[job_id]["status"] = "generating_code"
         job_store[job_id]["progress_details"] = "Requesting code from Claude"
 
@@ -320,7 +293,6 @@ async def generate_visualization(job_id: str, topic: str):
 
         while retry_count <= MAX_RETRIES and not success:
             try:
-                # Clear the previous error message when we start a new retry
                 if retry_count > 0:
                     job_store[job_id][
                         "status"
@@ -329,20 +301,16 @@ async def generate_visualization(job_id: str, topic: str):
                         "progress_details"
                     ] = f"Attempting code generation (attempt {retry_count+1})"
 
-                # Step 1: Generate Manim code using Claude
                 code = await generate_manim_code(topic, last_error, retry_count)
 
-                # Step 2: Save the code to a file
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(code)
 
-                # Update job status before rendering
                 job_store[job_id]["status"] = "rendering_video"
                 job_store[job_id][
                     "progress_details"
                 ] = "Executing Manim to render visualization"
 
-                # Step 3: Run Manim with timeout
                 success, error_message = await run_manim_command(
                     file_path, job_id, timeout=300
                 )
@@ -362,15 +330,12 @@ async def generate_visualization(job_id: str, topic: str):
                         job_store[job_id]["status"] = "failed"
                         break
                     else:
-                        # Wait a short time before retry to avoid rapid cycling
                         await asyncio.sleep(2)
                         continue
 
-                # Update status for video processing
                 job_store[job_id]["status"] = "processing_video"
                 job_store[job_id]["progress_details"] = "Finding and moving video file"
 
-                # Find and move the video file
                 video_success, video_result = await find_and_move_video(job_id)
 
                 if not video_success:
@@ -393,7 +358,6 @@ async def generate_visualization(job_id: str, topic: str):
                         await asyncio.sleep(2)
                         continue
 
-                # Everything succeeded
                 job_store[job_id]["status"] = "completed"
                 job_store[job_id]["video_path"] = video_result
                 job_store[job_id][
@@ -421,11 +385,9 @@ async def generate_visualization(job_id: str, topic: str):
                         "progress_details"
                     ] = f"Failed after {MAX_RETRIES} attempts"
 
-        # Clean up temp file
         if os.path.exists(file_path):
             os.remove(file_path)
 
-        # Final check if we succeeded or failed
         if not success and job_store[job_id]["status"] != "failed":
             job_store[job_id]["status"] = "failed"
             job_store[job_id][
@@ -439,20 +401,16 @@ async def generate_visualization(job_id: str, topic: str):
         job_store[job_id]["error"] = str(e)
         job_store[job_id]["progress_details"] = "Unexpected error in generation process"
 
-        # Clean up temp file
         if os.path.exists(file_path):
             os.remove(file_path)
 
 
-# New function to stream video using ffmpeg
 async def stream_video(video_path: str):
     """Stream a video file using ffmpeg."""
     try:
-        # Check if the video file exists
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"Video file not found: {video_path}")
 
-        # Set up process to stream video using ffmpeg
         process = subprocess.Popen(
             [
                 "ffmpeg",
@@ -474,16 +432,13 @@ async def stream_video(video_path: str):
             stderr=subprocess.PIPE,
         )
 
-        # Define the generator function to yield video data
         async def generate():
             while True:
-                # Read data from stdout
-                data = process.stdout.read(1024 * 1024)  # Read 1MB at a time
+                data = process.stdout.read(1024 * 1024)  
                 if not data:
                     break
                 yield data
 
-            # Ensure process is terminated
             process.terminate()
             try:
                 process.wait(timeout=5)
@@ -504,7 +459,6 @@ async def generate_endpoint(
     """Endpoint to request a math visualization."""
     job_id = str(uuid.uuid4())
 
-    # Initialize job in the store
     job_store[job_id] = {
         "status": "queued",
         "topic": request.topic,
@@ -513,7 +467,6 @@ async def generate_endpoint(
         "video_path": None,
     }
 
-    # Start the background task
     background_tasks.add_task(generate_visualization, job_id, request.topic)
 
     return JSONResponse(
@@ -568,12 +521,11 @@ async def status_endpoint(job_id: str):
         job = job_store[job_id]
         logger.info(f"Job data: {job}")
 
-        # Ensure values are of the right type
         return {
             "job_id": job_id,
             "status": job["status"],
-            "video_path": job.get("video_path") or "",  # Convert None to empty string
-            "error": job.get("error") or "",  # Convert None to empty string
+            "video_path": job.get("video_path") or "",  
+            "error": job.get("error") or "",  
         }
     except Exception as e:
         logger.error(f"Error in status endpoint: {str(e)}")
@@ -603,7 +555,7 @@ async def chat(chat: ChatMessage):
         model="claude-3-5-haiku-latest",
         max_tokens=MAX_TOKENS,
         temperature=0.1,
-        system="You are an expert at manim code. Your job is to assist the user in their queries.",
+        system="You are an expert at mathematics. Your job is to assist the user in their queries. Attention: Do not answer any other questions other than math related or coding related questions.",
         messages=chat_context,
     )
 
@@ -664,7 +616,6 @@ async def check_manim():
         python_exe = sys.executable
         cmd = f'"{python_exe}" -m pip list'
 
-        # Check platform to use the appropriate grep command
         if sys.platform == "win32":
             cmd += " | findstr manim"
         else:
@@ -700,7 +651,6 @@ async def check_ffmpeg():
         )
 
         if result.returncode == 0:
-            # Extract the first line of the version information
             version_info = (
                 result.stdout.splitlines()[0] if result.stdout else "Unknown version"
             )
@@ -722,7 +672,6 @@ async def get_job_logs(job_id: str):
 
     job = job_store[job_id]
 
-    # Construct log information
     logs = {
         "job_id": job_id,
         "topic": job["topic"],
@@ -736,6 +685,5 @@ async def get_job_logs(job_id: str):
 
 
 if __name__ == "__main__":
-    # Create videos directory if it doesn't exist
     os.makedirs("videos", exist_ok=True)
     uvicorn.run("main:app", reload=True)
